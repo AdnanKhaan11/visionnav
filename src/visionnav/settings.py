@@ -7,6 +7,7 @@ Priority (highest → lowest):
   2. .env file
   3. Defaults defined below
 """
+
 from __future__ import annotations
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,7 +21,7 @@ class VLLMSettings(BaseSettings):
 
 class ModelSettings(BaseSettings):
     backend: str = "local"
-    name: str = "Qwen/Qwen2.5-VL-3B-Instruct"
+    name: str = "microsoft/DialoGPT-small"
     dtype: str = "bfloat16"
     device_map: str = "auto"
     vllm: VLLMSettings = VLLMSettings()

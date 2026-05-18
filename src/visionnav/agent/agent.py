@@ -9,7 +9,10 @@ from pathlib import Path
 import structlog
 
 from visionnav.actions.executor import ActionExecutor
-from visionnav.actions.parser import ActionParseError, parse_action
+from visionnav.actions.parser import (
+    ActionParseError,
+    parse_action,
+)
 from visionnav.actions.schema import Action, ActionType
 from visionnav.actions.verifier import ActionVerifier
 from visionnav.agent.planner import TaskPlanner

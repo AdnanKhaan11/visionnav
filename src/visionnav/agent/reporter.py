@@ -1,4 +1,5 @@
 """Task Reporter — human-readable summary from step history."""
+
 from __future__ import annotations
 from visionnav.agent.state import AgentState, TaskResult
 
@@ -16,11 +17,10 @@ class TaskReporter:
             "Step Log:",
         ]
         for s in history:
-            info = "—"
+            info = "no action"
             if s.action_taken:
                 info = f"{s.action_taken.type} {'OK' if s.action_success else 'FAIL'}"
             lines.append(f"  [{s.step_index:02d}] {info}")
             if s.error:
                 lines.append(f"       Error: {s.error}")
-        return "
-".join(lines)
+        return "\n".join(lines)
