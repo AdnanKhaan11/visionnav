@@ -1,0 +1,20 @@
+# VisionNav Inference Service — requires NVIDIA GPU
+# Models are mounted as volumes, not baked in (hot-swap without rebuild)
+FROM nvcr.io/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+
+RUN apt-get update && apt-get install -y python3 python3-pip curl     && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir "vllm>=0.8.4" "qwen-vl-utils>=0.0.11"
+
+VOLUME /models
+
+ENV MODEL_PATH=/models/visionnav-3b
+ENV SERVED_MODEL_NAME=visionnav-3b
+ENV MAX_MODEL_LEN=4096
+ENV TENSOR_PARALLEL_SIZE=1
+
+EXPOSE 8001
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=5     CMD curl -f http://localhost:8001/health || exit 1
+
+CMD vllm serve ${MODEL_PATH}     --port 8001     --served-model-name ${SERVED_MODEL_NAME}     --max-model-len ${MAX_MODEL_LEN}     --limit-mm-per-prompt image=3     --tensor-parallel-size ${TENSOR_PARALLEL_SIZE}     --dtype bfloat16

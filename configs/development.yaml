@@ -1,0 +1,12 @@
+# Development overrides — inherits from base.yaml
+agent:
+  max_steps: 20
+
+model:
+  backend: "local"
+
+api:
+  valid_keys: ["dev-key-123"]
+
+db:
+  url: "sqlite+aiosqlite:///./visionnav_dev.db"

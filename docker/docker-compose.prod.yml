@@ -1,0 +1,32 @@
+# VisionNav production stack
+# All secrets via environment variables — nothing hardcoded here
+services:
+  api:
+    image: visionnav-api:${IMAGE_TAG:-latest}
+    ports:
+      - "8000:8000"
+    environment:
+      - VISIONNAV_ENV=production
+      - VISIONNAV_MODEL__BACKEND=vllm
+      - VISIONNAV_MODEL__VLLM__BASE_URL=http://inference:8001
+      - VISIONNAV_API__VALID_KEYS=${API_VALID_KEYS}
+      - VISIONNAV_DB__URL=${DB_URL}
+    depends_on:
+      inference:
+        condition: service_healthy
+    restart: always
+
+  inference:
+    image: visionnav-inference:${IMAGE_TAG:-latest}
+    volumes:
+      - /data/models:/models
+    environment:
+      - MODEL_PATH=/models/visionnav-3b
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: always

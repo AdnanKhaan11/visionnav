@@ -1,0 +1,16 @@
+{
+  "_comment": "LLaMA-Factory dataset registry",
+  "gui_video_full":         {"file_name": "tongui/gui_video_full.json",        "formatting": "sharegpt"},
+  "wikihow_v3":             {"file_name": "tongui/wikihow_v3.json",             "formatting": "sharegpt"},
+  "baidu_jingyan_train":    {"file_name": "tongui/baidu_jingyan_train.json",    "formatting": "sharegpt"},
+  "aitw_with_thoughts":     {"file_name": "external/aitw_with_thoughts.json",   "formatting": "sharegpt"},
+  "mind2web_with_thoughts": {"file_name": "external/mind2web_with_thoughts.json","formatting": "sharegpt"},
+  "guiact_smartphone":      {"file_name": "external/guiact_smartphone.json",    "formatting": "sharegpt"},
+  "miniwob_with_thoughts":  {"file_name": "external/miniwob_with_thoughts.json","formatting": "sharegpt"},
+  "showui-desktop-augmented":{"file_name": "external/showui_desktop.json",      "formatting": "sharegpt"},
+  "showui-web":             {"file_name": "external/showui_web.json",            "formatting": "sharegpt"},
+  "visionnav_multistep":    {"file_name": "visionnav/multistep_tasks.json",     "formatting": "sharegpt"},
+  "visionnav_recovery":     {"file_name": "visionnav/recovery_scenarios.json",  "formatting": "sharegpt"},
+  "visionnav_windows":      {"file_name": "visionnav/windows_tasks.json",       "formatting": "sharegpt"},
+  "visionnav_android":      {"file_name": "visionnav/android_tasks.json",       "formatting": "sharegpt"}
+}

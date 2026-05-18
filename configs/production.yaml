@@ -1,0 +1,11 @@
+# Production overrides — secrets come from environment variables, NOT here
+agent:
+  max_steps: 30
+
+model:
+  backend: "vllm"
+
+api:
+  cors_origins:
+    - "https://visionnav.ai"
+    - "https://app.visionnav.ai"

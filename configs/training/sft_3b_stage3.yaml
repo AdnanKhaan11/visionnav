@@ -1,0 +1,27 @@
+### Stage 3 — Multi-Step Planning
+### Gate: ScreenSpot >= 79.6%, Mind2Web SR >= 44%
+model_name_or_path: Qwen/Qwen2.5-VL-3B-Instruct
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 64
+lora_alpha: 128
+lora_dropout: 0.05
+lora_target: q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj
+resume_from_checkpoint: checkpoints/stage2_action
+dataset: visionnav_multistep,visionnav_recovery,baidu_jingyan_train,wikihow_v3
+template: qwen2_vl
+cutoff_len: 8192
+preprocessing_num_workers: 8
+output_dir: checkpoints/stage3_planning
+logging_steps: 10
+save_steps: 500
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 16
+learning_rate: 5.0e-5
+num_train_epochs: 2
+lr_scheduler_type: cosine
+warmup_ratio: 0.05
+bf16: true
+report_to: wandb
+run_name: visionnav-3b-stage3

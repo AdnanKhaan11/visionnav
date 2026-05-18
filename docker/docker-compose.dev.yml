@@ -1,0 +1,52 @@
+# VisionNav local development stack
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../src:/app/src            # live reload
+      - ../configs:/app/configs
+      - screenshots:/tmp/visionnav/screenshots
+    environment:
+      - VISIONNAV_ENV=development
+      - VISIONNAV_MODEL__BACKEND=vllm
+      - VISIONNAV_MODEL__VLLM__BASE_URL=http://inference:8001
+      - VISIONNAV_API__VALID_KEYS=["dev-key-123"]
+      - LOG_LEVEL=DEBUG
+    depends_on:
+      inference:
+        condition: service_healthy
+    restart: unless-stopped
+
+  inference:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.inference
+    ports:
+      - "8001:8001"
+    volumes:
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # Uncomment for Phase 7+ scaling:
+  # redis:
+  #   image: redis:7-alpine
+  #   ports: ["6379:6379"]
+  #
+  # db:
+  #   image: postgres:16-alpine
+  #   environment: { POSTGRES_DB: visionnav, POSTGRES_PASSWORD: localdev }
+  #   ports: ["5432:5432"]
+
+volumes:
+  screenshots:

@@ -1,0 +1,42 @@
+agent:
+  max_steps: 50
+  screenshot_dir: "/tmp/visionnav/screenshots"
+  change_threshold: 0.01
+
+model:
+  backend: "local"
+  name: "Qwen/Qwen2.5-VL-3B-Instruct"
+  dtype: "bfloat16"
+  device_map: "auto"
+  vllm:
+    base_url: "http://localhost:8001"
+    model_name: "visionnav-3b"
+    timeout_seconds: 30
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins: ["*"]
+  valid_keys: []
+
+db:
+  url: "sqlite+aiosqlite:///./visionnav.db"
+
+platforms:
+  desktop:
+    capture:
+      monitor_index: 1
+    mouse:
+      move_duration: 0.15
+      click_delay: 0.1
+      use_bezier_path: true
+    keyboard:
+      typing_wpm: 60
+      key_delay: 0.05
+  android:
+    adb:
+      device_serial: null
+      screencap_method: "adb"
+    touch:
+      tap_duration: 50
+      swipe_duration: 300
