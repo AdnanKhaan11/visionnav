@@ -3,7 +3,7 @@
 from __future__ import annotations
 import asyncio
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import structlog
@@ -76,7 +76,8 @@ class VisionNavAgent:
 
         for step_num in range(self._settings.max_steps):
             bound.info("step_started", step=step_num)
-            t0 = datetime.utcnow()
+
+            t0 = datetime.now(timezone.utc)
 
             # 1. PERCEIVE
             arr, meta = await self._platform.capture()
@@ -123,7 +124,7 @@ class VisionNavAgent:
             after_arr, _ = await self._platform.capture()
             success, change = self._verifier.verify(arr, after_arr, action)
 
-            elapsed = (datetime.utcnow() - t0).total_seconds()
+            elapsed = (datetime.now(timezone.utc) - t0).total_seconds()
             bound.info(
                 "step_complete",
                 step=step_num,

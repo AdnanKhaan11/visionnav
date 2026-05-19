@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -20,7 +20,7 @@ class AgentState:
     action_taken: Optional["Action"]  # What action was executed.
     action_success: bool
     reasoning: str  # AI thinking text
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     error: Optional[str] = None
 
     def to_history_entry(self) -> dict:
