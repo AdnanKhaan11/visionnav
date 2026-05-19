@@ -187,3 +187,183 @@ Question: [specific question]
 And I will respond like your senior — with explanation, code review, and the next thing to do.
 
 Let's start. Tell me: **have you installed `uv` yet, and what is your current machine — Windows, Mac, or Linux?** That determines our exact first command for Phase 1.
+
+31 passed. 0 failed. Perfect.
+
+---
+
+## Day 2 Progress So Far
+
+---
+
+## After Pushing — Quick Question
+
+Look at this output from our test:
+
+```
+'EXPLORER' at [0.08, 0.10, 0.13, 0.11]
+```
+
+These 4 numbers are the bounding box of the text.
+
+Tell me in your own words:
+
+```
+What does each number mean?
+[0.08, 0.10, 0.13, 0.11]
+  ?     ?     ?     ?
+```
+
+Hint — remember what we learned about normalized coordinates. `0.0` is top left. `1.0` is bottom right.
+
+Think and answer. Then we move to the next task.
+
+## solution of question.
+
+No problem. Let me explain with a picture.
+
+---
+
+## Think Of Your Screen Like This
+
+```
+(0.0, 0.0)─────────────────────(1.0, 0.0)
+     │                               │
+     │                               │
+     │                               │
+     │                               │
+(0.0, 1.0)─────────────────────(1.0, 1.0)
+```
+
+```
+Top-left corner     = (0.0, 0.0)
+Top-right corner    = (1.0, 0.0)
+Bottom-left corner  = (0.0, 1.0)
+Bottom-right corner = (1.0, 1.0)
+Center of screen    = (0.5, 0.5)
+```
+
+---
+
+## The 4 Numbers Are 2 Corner Points
+
+```
+[x1, y1, x2, y2]
+```
+
+```
+x1, y1 = TOP-LEFT corner of the text box
+x2, y2 = BOTTOM-RIGHT corner of the text box
+```
+
+---
+
+## Now Look At EXPLORER
+
+```
+'EXPLORER' at [0.08, 0.10, 0.13, 0.11]
+               x1    y1    x2    y2
+```
+
+In plain words:
+
+```
+x1 = 0.08  → starts 8% from left edge
+y1 = 0.10  → starts 10% from top edge
+x2 = 0.13  → ends 13% from left edge
+y2 = 0.11  → ends 11% from top edge
+```
+
+Draw it on your screen:
+
+```
+(0.0, 0.0)────────────────────────(1.0, 0.0)
+     │                                  │
+     │   8%→ ┌────────┐ ←13%            │
+     │  10%↓ │EXPLORER│ ↑11%            │
+     │        └────────┘                │
+     │                                  │
+(0.0, 1.0)────────────────────────(1.0, 1.0)
+```
+
+---
+
+## Why Is This Useful?
+
+When agent wants to click EXPLORER:
+
+```python
+# Find center of the box
+cx = (0.08 + 0.13) / 2 = 0.105
+cy = (0.10 + 0.11) / 2 = 0.105
+
+# Convert to pixels on 1920x1080 screen
+click_x = 0.105 * 1920 = 201 pixels
+click_y = 0.105 * 1080 = 113 pixels
+
+# Agent clicks at (201, 113) → hits EXPLORER perfectly
+```
+
+---
+
+## One Sentence To Remember
+
+> The 4 numbers `[x1, y1, x2, y2]` describe a rectangle around the text. All values are between 0 and 1 so they work on any screen size.
+
+---
+
+## Now You Try
+
+Look at this from our output:
+
+```
+'test_perception.py' at [0.35, 0.15, 0.46, 0.18]
+```
+
+Tell me:
+```
+Where does this text start from left?  → x1 = ?%
+Where does this text start from top?   → y1 = ?%
+Where does this text end from left?    → x2 = ?%
+Where does this text end from top?     → y2 = ?%
+```
+
+---
+100% correct. Perfect answer.
+
+---
+
+## You Now Understand Coordinates Completely
+
+```
+'test_perception.py' at [0.35, 0.15, 0.46, 0.18]
+
+Starts: 35% from left, 15% from top
+Ends:   46% from left, 18% from top
+
+Click center:
+  cx = (0.35 + 0.46) / 2 = 0.405  → 40.5% from left
+  cy = (0.15 + 0.18) / 2 = 0.165  → 16.5% from top
+
+On 1920x1080 screen:
+  click_x = 0.405 * 1920 = 778 pixels
+  click_y = 0.165 * 1080 = 178 pixels
+```
+
+If agent wanted to click `test_perception.py` tab — it would click at pixel `(778, 178)`. That is exactly where the tab is on your screen.
+
+---
+
+## This Is The Core Of GUI Automation
+
+```
+See text on screen       → OCR gives us [x1, y1, x2, y2]
+Calculate center         → (x1+x2)/2, (y1+y2)/2
+Convert to pixels        → multiply by screen width/height
+Click that pixel         → pyautogui.click(x, y)
+```
+
+That is literally how the entire agent works.
+
+---
+
