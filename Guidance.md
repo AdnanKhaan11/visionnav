@@ -366,4 +366,130 @@ Click that pixel         → pyautogui.click(x, y)
 That is literally how the entire agent works.
 
 ---
+## testing questions.
+Have a great time at university! 🎓
 
+Here are your questions to read and think about:
+
+---
+
+## Questions To Answer When You Return
+
+### Agent Loop Questions
+```
+Q1.  What are the 3 ways the agent loop can end?
+
+Q2.  What is the difference between DONE and FAIL action?
+
+Q3.  What happens when model outputs invalid text 
+     that parser cannot understand?
+
+Q4.  Why do we have max_steps limit?
+
+Q5.  What does try/except do in simple words?
+```
+
+### Coordinates Questions
+```
+Q6.  What does [0.0, 0.0] represent on screen?
+
+Q7.  What does [1.0, 1.0] represent on screen?
+
+Q8.  What does [0.5, 0.5] represent on screen?
+
+Q9.  Given this bbox [0.35, 0.15, 0.46, 0.18]
+     how do you calculate the center point?
+
+Q10. Why do we normalize coordinates instead of 
+     using pixels directly?
+```
+
+### OCR Questions
+```
+Q11. What is OCR in simple words?
+
+Q12. What are the 4 numbers in a text region bbox?
+
+Q13. Why do we filter regions with confidence < 0.6?
+
+Q14. What is the difference between PaddleOCR 
+     and Tesseract?
+
+Q15. Why did OCR find "Format" and "View" 
+     when Notepad opened?
+```
+
+### Architecture Questions
+```
+Q16. What is the purpose of agent.py?
+
+Q17. What is the purpose of perception/fusion.py?
+
+Q18. What is the purpose of actions/parser.py?
+
+Q19. What is the purpose of memory/sqlite.py?
+
+Q20. What is the purpose of platforms/desktop.py?
+```
+
+### API Questions
+```
+Q21. What is the difference between 202 and 200 
+     HTTP status codes?
+
+Q22. Why does POST /v1/tasks/ return immediately 
+     without waiting for task to finish?
+
+Q23. What is async programming in simple words?
+
+Q24. Why do we version our API as /v1/?
+
+Q25. What does the health endpoint do?
+```
+
+### Engineering Questions
+```
+Q26. What is a virtual environment and why use it?
+
+Q27. What is pyproject.toml and what does it contain?
+
+Q28. Why do we use src/ layout for our code?
+
+Q29. What is the purpose of unit tests?
+
+Q30. What does git commit and git push do?
+```
+
+---
+
+## Where To Focus Most
+
+```
+Most Important (focus here first):
+  ★★★  Q1  to Q5   → Agent loop (core of project)
+  ★★★  Q6  to Q10  → Coordinates (used everywhere)
+  ★★★  Q16 to Q20  → Architecture (what each file does)
+
+Medium Important:
+  ★★   Q11 to Q15  → OCR understanding
+  ★★   Q21 to Q25  → API understanding
+
+Good To Know:
+  ★    Q26 to Q30  → Engineering basics
+```
+
+---
+
+## When You Return
+
+Come back and tell me:
+
+```
+1. Your answers to all 30 questions
+2. Which ones you could not answer
+3. Which ones confused you
+```
+
+Then we continue Phase 3 — Data Pipeline.
+
+See you when you return! 📚
