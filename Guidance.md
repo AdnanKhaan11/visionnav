@@ -493,3 +493,145 @@ Come back and tell me:
 Then we continue Phase 3 — Data Pipeline.
 
 See you when you return! 📚
+
+OK. Let me teach you all 3 answers.
+
+---
+### Questions
+
+Q1. HardcodedModel reads pre-written actions.
+    LocalModelBackend uses AI to decide actions.
+
+Q2. Only settings.py changes — just the model name.
+    Zero code changes needed anywhere else.
+
+Q3. change=0.109 means 10.9% of screen pixels
+    changed — a new window opened.
+
+## Answer 1 — HardcodedModel vs LocalModelBackend
+
+Think of it like this:
+
+```
+HardcodedModel = a script actor
+  You give him the lines before the show
+  He reads them exactly as written
+  No thinking involved
+  
+  We wrote:
+  "win+r" → "type notepad" → "enter" → "done"
+  Model just reads these in order
+
+LocalModelBackend = a real actor
+  You give him the script (task)
+  He thinks and decides himself
+  Uses AI to figure out actions
+  
+  You say: "Open Notepad"
+  Model thinks: "I need Win+R... then type notepad..."
+  Model decides actions itself
+```
+
+**In simple words:**
+```
+HardcodedModel  → WE decide the actions (manual)
+LocalModelBackend → AI decides the actions (automatic)
+```
+
+---
+
+## Answer 2 — Which File Changes When We Fine-Tune?
+
+Answer is: **NO file changes needed.**
+
+Here is why. Look at `tasks.py` in the API:
+
+```python
+agent = VisionNavAgent(
+    model = LocalModelBackend(settings.model),  ← only this line
+    platform = DesktopPlatform(),
+    memory = SQLiteMemoryStore(...),
+    safety = SafetyClassifier(),
+    settings = settings.agent,
+)
+```
+
+When we fine-tune — we only change `settings.py`:
+
+```python
+# Before fine-tuning
+name: str = "microsoft/DialoGPT-small"
+
+# After fine-tuning
+name: str = "checkpoints/stage3_planning"
+```
+
+That is it. One config value. Zero code changes. This is why we built the Interface Law.
+
+```
+agent.py     → never changes
+tasks.py     → never changes
+settings.py  → change model name only
+```
+
+---
+
+## Answer 3 — What Is change=0.109?
+
+Remember the ActionVerifier we built?
+
+```python
+diff         = np.abs(before - after)
+change_ratio = (diff > 30).mean()
+```
+
+It compares screenshot before and after action.
+
+```
+change=0.109 means:
+
+10.9% of pixels on your screen changed
+
+Before step 2: screen showed Run dialog with empty field
+After step 2:  Notepad window appeared
+
+10.9% of 1920x1080 = about 225,000 pixels changed
+That is a big visible change → Notepad opened
+```
+
+**Scale:**
+```
+change=0.000 → nothing changed (action had no effect)
+change=0.010 → small change (text typed in field)
+change=0.109 → big change (new window opened)
+change=0.400 → huge change (entire screen changed)
+```
+
+---
+
+## One Sentence For Each Answer
+
+```
+Q1. HardcodedModel reads pre-written actions.
+    LocalModelBackend uses AI to decide actions.
+
+Q2. Only settings.py changes — just the model name.
+    Zero code changes needed anywhere else.
+
+Q3. change=0.109 means 10.9% of screen pixels
+    changed — a new window opened.
+```
+
+---
+
+## Now You Know These — Remember Them
+
+These are real interview questions. You now have real answers from real experience.
+
+---
+
+## Next Step
+
+Commit and then we move to Phase 7 — API improvements.
+
+
