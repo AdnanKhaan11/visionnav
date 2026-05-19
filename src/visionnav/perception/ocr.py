@@ -81,4 +81,15 @@ class OCREngine:
                     confidence=conf / 100.0,
                 )
             )
+        # Filter out noise — single characters and symbols
+        regions = [
+            r
+            for r in regions
+            if len(r.text.strip()) > 2
+            and r.confidence > 0.6
+            and not r.text.strip().isnumeric()
+            and "{" not in r.text
+            and "$" not in r.text
+            and len([c for c in r.text if c.isalpha()]) > 1
+        ]
         return regions
