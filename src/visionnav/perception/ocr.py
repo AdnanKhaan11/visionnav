@@ -1,9 +1,13 @@
 """OCR Engine — PaddleOCR primary, Tesseract fallback."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass
+
 import numpy as np
 import structlog
+
+from visionnav.settings import OCRSettings
 
 log = structlog.get_logger(__name__)
 
@@ -11,89 +15,244 @@ log = structlog.get_logger(__name__)
 @dataclass
 class TextRegion:
     text: str
-    bbox: tuple[float, float, float, float]  # normalised (x1,y1,x2,y2)
+    bbox: tuple[float, float, float, float]  # normalized (x1,y1,x2,y2)
     confidence: float
 
 
 class OCREngine:
-    def __init__(self, min_confidence: float = 0.5) -> None:
-        self._min_confidence = min_confidence
-        self._paddle = None  # lazy-loaded means Do NOT load heavy model immediately.load when needed
+    """
+    OCR pipeline for extracting text regions from screenshots.
+
+    Architecture goals:
+    - No hardcoded configuration
+    - Configurable through OCRSettings
+    - PaddleOCR primary with optional fallback
+    - Structured TextRegion outputs
+    """
+
+    def __init__(
+        self,
+        settings: OCRSettings | None = None,
+    ) -> None:
+        # If no settings provided → create default OCRSettings
+        self._settings = settings or OCRSettings()
+
+        # Lazy-load PaddleOCR only when needed
+        # Avoids heavy startup cost
+        self._paddle = None
 
     def run(self, image: np.ndarray) -> list[TextRegion]:
+        """
+        Main OCR entrypoint.
+
+        Engine behavior controlled entirely by settings:
+        - paddle      → PaddleOCR only
+        - tesseract   → Tesseract only
+        - auto        → Paddle first, fallback to Tesseract
+        """
+
         h, w = image.shape[:2]
+
         try:
-            return self._run_tesseract(image, w, h)
+
+            engine = self._settings.engine
+
+            # Paddle only
+            if engine == "paddle":
+
+                regions = self._run_paddle(
+                    image,
+                    w,
+                    h,
+                )
+
+            # Tesseract only
+            elif engine == "tesseract":
+
+                regions = self._run_tesseract(
+                    image,
+                    w,
+                    h,
+                )
+
+            # Auto mode:
+            # Try PaddleOCR first
+            # If Paddle fails → fallback to Tesseract
+            elif engine == "auto":
+
+                try:
+
+                    regions = self._run_paddle(
+                        image,
+                        w,
+                        h,
+                    )
+
+                except Exception as exc:
+
+                    log.warning(
+                        "paddle_ocr_failed_falling_back_to_tesseract",
+                        error=str(exc),
+                    )
+
+                    regions = self._run_tesseract(
+                        image,
+                        w,
+                        h,
+                    )
+
+            else:
+
+                log.warning(
+                    "unknown_ocr_engine",
+                    engine=engine,
+                )
+
+                return []
+
+            # Apply max_regions ONCE globally
+            return regions[: self._settings.max_regions]
+
         except Exception as exc:
-            log.warning("ocr_failed", error=str(exc))
+
+            log.warning(
+                "ocr_failed",
+                error=str(exc),
+            )
+
             return []
 
-    def _run_paddle(self, image: np.ndarray, w: int, h: int) -> list[TextRegion]:
+    def _run_paddle(
+        self,
+        image: np.ndarray,
+        w: int,
+        h: int,
+    ) -> list[TextRegion]:
+        from paddleocr import PaddleOCR
+
+        # Lazy-load heavy OCR model only when needed
         if self._paddle is None:
+
             from paddleocr import PaddleOCR
 
-            self._paddle = PaddleOCR(use_angle_cls=True, lang="en", show_log=False)
-        results = self._paddle.ocr(image, cls=True)
+            self._paddle = PaddleOCR(
+                use_angle_cls=True,
+                lang=self._settings.languages,
+                show_log=False,
+            )
+
+        results = self._paddle.ocr(
+            image,
+            cls=True,
+        )
+
         regions: list[TextRegion] = []
-        if not results or not results[0]:  # If OCR found nothing.
+
+        # No OCR results found
+        if not results or not results[0]:
             return regions
+
         for line in results[0]:
+
             pts, (text, conf) = line
-            if conf < self._min_confidence:
+
+            # Skip low-confidence detections
+            if conf < self._settings.min_confidence:
                 continue
-            xs = [
-                p[0] for p in pts
-            ]  # why we use pts[0] and pts[1] instead of directly using pts? Because pts is a list of points that define the bounding box of the detected text. Each point is a tuple (x, y). To calculate the bounding box, we need to find the minimum and maximum x and y coordinates from these points. Therefore, we extract the x and y coordinates into separate lists (xs and ys) to easily compute the bounding box.
+
+            cleaned_text = text.strip()
+
+            # Skip very short noisy text
+            if len(cleaned_text) < self._settings.min_text_length:
+                continue
+
+            # Extract x/y coordinates separately
+            # because Paddle returns 4 corner points
+            xs = [p[0] for p in pts]
             ys = [p[1] for p in pts]
+
             regions.append(
                 TextRegion(
-                    text=text.strip(),
-                    bbox=(min(xs) / w, min(ys) / h, max(xs) / w, max(ys) / h),
+                    text=cleaned_text,
+                    bbox=(
+                        min(xs) / w,
+                        min(ys) / h,
+                        max(xs) / w,
+                        max(ys) / h,
+                    ),
                     confidence=float(conf),
                 )
             )
+
         return regions
 
-    def _run_tesseract(self, image: np.ndarray, w: int, h: int) -> list[TextRegion]:
-        import pytesseract
+    def _run_tesseract(
+        self,
+        image: np.ndarray,
+        w: int,
+        h: int,
+    ) -> list[TextRegion]:
 
-        pytesseract.pytesseract.tesseract_cmd = (
-            r"D:\mlops-tools\Tesseract-OCR\tesseract.exe"
-        )
+        import pytesseract
         from PIL import Image
 
+        # Tesseract executable path from settings
+        pytesseract.pytesseract.tesseract_cmd = self._settings.tesseract_path
+
         data = pytesseract.image_to_data(
-            Image.fromarray(image), output_type=pytesseract.Output.DICT
+            Image.fromarray(image),
+            output_type=pytesseract.Output.DICT,
         )
+
         regions: list[TextRegion] = []
+
         for i, text in enumerate(data["text"]):
+
+            cleaned_text = text.strip()
+
+            # Tesseract confidence returned as 0-100
             conf = int(data["conf"][i])
-            if conf < int(self._min_confidence * 100) or not text.strip():
+
+            normalized_conf = conf / 100.0
+
+            # Skip invalid detections
+            if normalized_conf < self._settings.min_confidence or not cleaned_text:
                 continue
+
+            # Skip short noisy text
+            if len(cleaned_text) < self._settings.min_text_length:
+                continue
+
             x, y, bw, bh = (
                 data["left"][i],
                 data["top"][i],
                 data["width"][i],
                 data["height"][i],
             )
+
             regions.append(
                 TextRegion(
-                    text=text.strip(),
-                    bbox=(x / w, y / h, (x + bw) / w, (y + bh) / h),
-                    confidence=conf / 100.0,
+                    text=cleaned_text,
+                    bbox=(
+                        x / w,
+                        y / h,
+                        (x + bw) / w,
+                        (y + bh) / h,
+                    ),
+                    confidence=normalized_conf,
                 )
             )
-        # Filter out noise — single characters and symbols
+
+        # Additional noise filtering
         regions = [
             r
             for r in regions
-            if len(r.text.strip()) > 2
-            and r.confidence > 0.6
-            and not r.text.strip().isnumeric()
+            if not r.text.isnumeric()
             and "{" not in r.text
             and "$" not in r.text
             and len([c for c in r.text if c.isalpha()]) > 1
         ]
+
         return regions
 
 

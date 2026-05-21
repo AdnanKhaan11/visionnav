@@ -9,7 +9,7 @@ Priority (highest → lowest):
 """
 
 from __future__ import annotations
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -44,6 +44,26 @@ class DBSettings(BaseSettings):
     url: str = "sqlite+aiosqlite:///./visionnav.db"
 
 
+class OCRSettings(BaseSettings):
+    engine: str = "auto"
+
+    @field_validator("engine")
+    @classmethod
+    def validate_engine(cls, value: str) -> str:
+        allowed = {"auto", "paddle", "tesseract"}
+        if value not in allowed:
+            raise ValueError(
+                f"Invalid OCR engine: {value}. Allowed values are: {allowed}"
+            )
+        return value
+
+    min_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    tesseract_path: str = r"D:\mlops-tools\Tesseract-OCR\tesseract.exe"
+    max_regions: int = Field(default=50, ge=1, le=200)
+    min_text_length: int = Field(default=2, gt=0)
+    languages: str = "en"
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="VISIONNAV_",
@@ -56,6 +76,7 @@ class Settings(BaseSettings):
     api: APISettings = APISettings()
     agent: AgentSettings = AgentSettings()
     db: DBSettings = DBSettings()
+    ocr: OCRSettings = OCRSettings()
 
 
 def get_settings() -> Settings:
