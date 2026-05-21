@@ -1,4 +1,5 @@
 """Prompt builder for Qwen2.5-VL."""
+
 from __future__ import annotations
 from visionnav.perception.fusion import Observation
 
@@ -31,10 +32,14 @@ def build_prompt(
     history: list[dict],
     plan: list[str],
 ) -> list[dict]:
-    plan_text    = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(plan))
-    history_text = "\n".join(
-        f"  Step {i}: {h.get('content', '')}" for i, h in enumerate(history[-5:])
-    ) or "  None yet"
+
+    plan_text = "\n".join(f"  {i+1}. {s}" for i, s in enumerate(plan))
+    history_text = (
+        "\n".join(
+            f"  Step {i}: {h.get('content', '')}" for i, h in enumerate(history[-5:])
+        )
+        or "  None yet"
+    )
 
     user_text = (
         f"TASK: {task}\n\n"
@@ -48,8 +53,12 @@ def build_prompt(
         {
             "role": "user",
             "content": [
-                {"type": "image_url",
-                 "image_url": {"url": f"data:image/png;base64,{observation.screenshot_b64}"}},
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{observation.screenshot_b64}"
+                    },
+                },
                 {"type": "text", "text": user_text},
             ],
         },
