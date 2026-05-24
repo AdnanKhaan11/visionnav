@@ -531,7 +531,171 @@ Rules (in this exact priority order):
 ```
 
 ---
+># ─────────────────────────────────────────────────────────────
+# ScreenRegion Coordinate System
+# ─────────────────────────────────────────────────────────────
 
+# A screen region stores coordinates as NORMALIZED VALUES.
+# Normalized means values between 0.0 and 1.0 (percentages).
+
+# x = horizontal direction (left ↔ right)
+# y = vertical direction   (top ↕ bottom)
+
+# x1 = starting horizontal position
+# x2 = ending horizontal position
+
+# y1 = starting vertical position
+# y2 = ending vertical position
+
+
+# Example:
+# ScreenRegion(0.0, 0.0, 0.33, 0.33, "top_left")
+
+# Means:
+# x1 = 0.0   → start at 0% from left
+# y1 = 0.0   → start at 0% from top
+# x2 = 0.33  → end at 33% of screen width
+# y2 = 0.33  → end at 33% of screen height
+
+# Visual:
+#
+# +-----------------------------+
+# | top_left      |             |
+# |                |            |
+# |-----------------------------|
+# |                             |
+# +-----------------------------+
+
+
+# ─────────────────────────────────────────────────────────────
+# Why Use Normalized Coordinates?
+# ─────────────────────────────────────────────────────────────
+
+# Because different devices have different resolutions.
+
+# Laptop:
+#   width = 1920
+#   height = 1080
+
+# Phone:
+#   width = 1080
+#   height = 2400
+
+# Using percentages makes regions work on ALL screens.
+
+
+# ─────────────────────────────────────────────────────────────
+# Converting Percentages → Real Pixels
+# ─────────────────────────────────────────────────────────────
+
+# Example:
+# screen width  = 1920
+# screen height = 1080
+
+# top_left region:
+# x1 = 0.0
+# x2 = 0.33
+# y1 = 0.0
+# y2 = 0.33
+
+# Convert to pixels:
+
+# c1 = int(x1 * width)
+#    = int(0.0 * 1920)
+#    = 0
+
+# c2 = int(x2 * width)
+#    = int(0.33 * 1920)
+#    = 633
+
+# r1 = int(y1 * height)
+#    = int(0.0 * 1080)
+#    = 0
+
+# r2 = int(y2 * height)
+#    = int(0.33 * 1080)
+#    = 356
+
+# Final pixel area:
+# rows = 0 → 356
+# cols = 0 → 633
+
+
+# ─────────────────────────────────────────────────────────────
+# Why Return slice() Objects?
+# ─────────────────────────────────────────────────────────────
+
+# NumPy images use:
+#
+# image[rows, cols]
+#
+# to extract part of an image.
+
+# Example:
+#
+# image[0:356, 0:633]
+#
+# extracts the top-left region.
+
+# slice(start, end) is Python's internal way
+# of representing:
+#
+# start:end
+
+# These are equivalent:
+#
+# image[0:356]
+#
+# image[slice(0,356)]
+
+
+# ─────────────────────────────────────────────────────────────
+# Why Extract Regions?
+# ─────────────────────────────────────────────────────────────
+
+# The AI does NOT only want:
+#
+# "Did the screen change?"
+#
+# It also wants:
+#
+# "WHERE did the screen change?"
+
+# Example:
+#
+# If center region changes heavily:
+#   → maybe a new window opened
+#
+# If only top-right changes:
+#   → maybe clock/cursor changed
+#
+# This helps the AI understand whether
+# its action succeeded or failed.
+
+
+# ─────────────────────────────────────────────────────────────
+# Example Flow
+# ─────────────────────────────────────────────────────────────
+
+# 1. Region stores percentages:
+#
+#    top_left = (0.0 → 0.33)
+
+# 2. Convert percentages into pixels:
+#
+#    rows = 0 → 356
+#    cols = 0 → 633
+
+# 3. Return slices:
+#
+#    slice(0,356), slice(0,633)
+
+# 4. NumPy extracts that region:
+#
+#    region = image[rows, cols]
+
+# 5. AI analyzes ONLY that part of screen.
+---
 ## Tests to Write
 
 Create `tests/unit/test_screen_diff.py`:

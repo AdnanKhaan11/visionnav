@@ -10,7 +10,14 @@ from dataclasses import dataclass, field
 import numpy as np
 from PIL import Image
 
+
 from visionnav.perception.ocr import TextRegion
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from visionnav.perception.ocr import OCREngine
+    from visionnav.platforms.base import PlatformAdapter
 
 
 # Main container holding everything the agent observes.
@@ -92,8 +99,8 @@ def fuse(
 
 
 async def fuse_parallel(
-    platform,
-    ocr_engine,
+    platform: PlatformAdapter,
+    ocr_engine: OCREngine,
     meta_override: dict | None = None,
 ) -> Observation:
     """
