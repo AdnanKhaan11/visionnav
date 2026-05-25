@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 import asyncio
 import base64
 import io
@@ -12,7 +13,6 @@ from PIL import Image
 
 
 from visionnav.perception.ocr import TextRegion
-from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

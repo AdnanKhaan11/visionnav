@@ -37,6 +37,7 @@ class TaskResult:
     steps: int
     error: Optional[str] = None
     summary: str = ""
+    elapsed_s: float = 0.0
 
 
 # 1. What is “Memory Snapshot”?

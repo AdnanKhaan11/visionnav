@@ -182,6 +182,49 @@ class VisionNavAgent:
             error="Maximum steps reached without completing the task.",
         )
 
+    async def run_with_loop(
+        self,
+        task_id: str,
+        instruction: str,
+    ) -> TaskResult:
+        """
+        Run the task using the new explicit AgentLoop state machine.
+
+        This is the modern replacement for run().
+        The old run() uses an implicit if/elif state machine.
+        This uses an explicit, logged, retrying AgentLoop.
+
+        Both methods produce the same TaskResult.
+        Use this for new features. Keep run() for existing tests.
+        """
+        from visionnav.agent.loop import AgentLoop, RetryPolicy
+
+        # Build the loop — inject all dependencies
+        loop = AgentLoop(
+            platform=self._platform,
+            ocr_engine=self._ocr,
+            model=self._model,
+            executor=self._executor,
+            memory=self._memory,
+            safety=self._safety,
+            max_steps=self._settings.max_steps,
+            retry_policy=RetryPolicy(
+                max_retries=3,
+                base_delay_s=0.5,
+            ),
+        )
+
+        # Save task to database before starting
+        # This creates the task record that GET /v1/tasks/{id} will find
+        await self._memory.save_task(task_id, instruction)
+
+        # Load previous steps if this task was already started
+        # Allows resuming a task from where it left off
+        history = await self._memory.get_recent_steps(task_id, n=10)
+
+        # Run the loop — returns when DONE, FAIL, or MAX_STEPS
+        return await loop.run(task_id, instruction, history)
+
 
 async def run_cli() -> None:
     """Entry point: visionnav-agent 'Open Chrome'"""
