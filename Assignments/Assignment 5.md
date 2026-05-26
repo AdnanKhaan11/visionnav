@@ -1234,6 +1234,31 @@ def test_format_report_returns_string():
 
 ---
 
+
+## How It All Works Together
+
+```
+Step 1 — Record:
+  ActionRecorder captures agent actions as they run
+  Each step: screenshot saved + action serialized → one JSONL line
+
+Step 2 — Analyze:
+  TrajectoryAnalyzer reads the JSONL file
+  Runs 4 detectors → finds issues → computes quality score
+
+Step 3 — Batch:
+  analyze_recordings.py runs on ALL files in a directory
+  Prints individual reports + aggregate summary
+  Shows which recordings are safe for training
+
+Step 4 — Training:
+  Only approved recordings (score >= 0.6) enter the training pipeline
+  Rejected recordings go to human review
+```
+
+Now run your tests and tell me the result.
+---
+
 ## Success Criteria
 
 ```bash
