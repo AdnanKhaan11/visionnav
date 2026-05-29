@@ -1,0 +1,42 @@
+{
+  "run_id": "7056c311",
+  "started_at": "2026-05-29T18:55:09.645017+00:00",
+  "finished_at": "2026-05-29T18:55:10.821019+00:00",
+  "ingestion": {
+    "processed": 7,
+    "passed": 7,
+    "failed": 0
+  },
+  "validation": {
+    "processed": 7,
+    "passed": 0,
+    "failed": 7
+  },
+  "enrichment": {
+    "processed": 0,
+    "passed": 0,
+    "failed": 0
+  },
+  "annotation": {
+    "processed": 0,
+    "passed": 0,
+    "failed": 0
+  },
+  "curation": {
+    "processed": 0,
+    "passed": 0,
+    "failed": 0
+  },
+  "rejection_reasons": {
+    "quarantined": 4,
+    "dedup": 3
+  },
+  "quality_buckets": {},
+  "language_counts": {},
+  "stage_counts": {},
+  "exported_per_stage": {
+    "stage1_grounding": 0,
+    "stage2_action": 0,
+    "stage3_planning": 0
+  }
+}

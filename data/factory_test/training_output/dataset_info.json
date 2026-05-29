@@ -1,0 +1,59 @@
+{
+  "visionnav_stage1_grounding_1_0_0": {
+    "file_name": "stage1_grounding_1_0_0.jsonl",
+    "formatting": "sharegpt",
+    "columns": {
+      "prompt": "conversations",
+      "images": "images",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt",
+      "system_tag": "system"
+    },
+    "num_samples": 0,
+    "stage": "stage1_grounding",
+    "version": "1.0.0"
+  },
+  "visionnav_stage2_action_1_0_0": {
+    "file_name": "stage2_action_1_0_0.jsonl",
+    "formatting": "sharegpt",
+    "columns": {
+      "prompt": "conversations",
+      "images": "images",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt",
+      "system_tag": "system"
+    },
+    "num_samples": 0,
+    "stage": "stage2_action",
+    "version": "1.0.0"
+  },
+  "visionnav_stage3_planning_1_0_0": {
+    "file_name": "stage3_planning_1_0_0.jsonl",
+    "formatting": "sharegpt",
+    "columns": {
+      "prompt": "conversations",
+      "images": "images",
+      "system": "system"
+    },
+    "tags": {
+      "role_tag": "from",
+      "content_tag": "value",
+      "user_tag": "human",
+      "assistant_tag": "gpt",
+      "system_tag": "system"
+    },
+    "num_samples": 0,
+    "stage": "stage3_planning",
+    "version": "1.0.0"
+  }
+}

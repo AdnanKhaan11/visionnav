@@ -1,0 +1,1 @@
+{"step_index": 0, "task": "Open Gmail and find unread emails", "session_id": "mock_session", "action": {"type": "click", "coordinates": [0.5, 0.22], "description": "Click the first unread email"}, "screenshot_path": "data\\recordings\\screenshots\\mock_session\\step_000.png", "ocr_text": "Gmail Inbox 3 unread Submit", "timestamp": "2026-05-20T12:00:00Z"}
