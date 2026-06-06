@@ -17,9 +17,26 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, "src")
+"""
+test_pipeline_final.py — complete end-to-end Dataset Factory test.
+"""
+import shutil
 
-# ── Paths ─────────────────────────────────────────────────────────────────────
-BASE_DIR = Path("data/factory_test")
+# ── CRITICAL: always start fresh for testing ──────────────────────────────────
+# The dedup index, registry, and lineage persist between runs by design.
+# In production that is correct — you WANT to detect duplicates across runs.
+# In testing we need a clean slate every time.
+# NEVER do this in production. Only in test scripts.
+FACTORY_TEST_DIR = Path("data/factory_test")
+if FACTORY_TEST_DIR.exists():
+    shutil.rmtree(FACTORY_TEST_DIR)
+    print(f"[TEST SETUP] Cleared previous test data: {FACTORY_TEST_DIR}")
+
+import numpy as np
+from PIL import Image, ImageDraw
+
+# ── Paths (define AFTER clearing) ─────────────────────────────────────────────
+BASE_DIR = FACTORY_TEST_DIR
 RECORDINGS_DIR = BASE_DIR / "recordings"
 OUTPUT_DIR = BASE_DIR / "training_output"
 PIPELINE_DIR = BASE_DIR / "pipeline"

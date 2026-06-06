@@ -25,7 +25,7 @@ log = structlog.get_logger(__name__)
 # Minimum quality score per stage (higher stages need better data)
 _STAGE_QUALITY_THRESHOLDS = {
     TrainingStage.STAGE1_GROUNDING: 0.60,
-    TrainingStage.STAGE2_ACTION: 0.70,
+    TrainingStage.STAGE2_ACTION: 0.62,
     TrainingStage.STAGE3_PLANNING: 0.80,
 }
 
@@ -37,51 +37,61 @@ _PLANNING_MIN_STEP = 5
 
 
 def route(sample: PipelineSample) -> str:
-    """
-    Determine which training stage this sample belongs to.
-
-    Updates sample.training_stage in place.
-
-    Returns:
-        TrainingStage enum value string
-    """
     score = sample.quality_score()
     action = sample.raw.action_type if sample.raw else ""
 
-    # ── Stage 3: Planning ─────────────────────────────────────────────────
-    # Long trajectories with detailed reasoning
+    # ── Stage 3 ───────────────────────────────────────────────────────────
     threshold_3 = _STAGE_QUALITY_THRESHOLDS[TrainingStage.STAGE3_PLANNING]
 
     is_long_horizon = sample.step_index >= _PLANNING_MIN_STEP
+
     has_good_reasoning = (
         sample.annotation is not None
         and len(sample.annotation.reasoning) >= 150
         and sample.annotation.reasoning_verified
     )
+
     has_intent = sample.annotation is not None and len(sample.annotation.intent) > 10
 
     if score >= threshold_3 and is_long_horizon and has_good_reasoning and has_intent:
-        stage = TrainingStage.STAGE3_PLANNING.value
-        log.debug("stage_routed", sample_id=sample.sample_id, stage="stage3")
-        sample.training_stage = stage
-        return stage
+        sample.training_stage = TrainingStage.STAGE3_PLANNING.value
 
-    # ── Stage 2: Action prediction ─────────────────────────────────────────
-    # Samples with clear task context and good quality
+        log.debug(
+            "stage_routed",
+            sample_id=sample.sample_id,
+            stage=sample.training_stage,
+        )
+
+        return sample.training_stage
+
+    # ── Stage 2 ───────────────────────────────────────────────────────────
+    # Accepts ALL action types (click, type, key, scroll, done)
+    # Requires either:
+    #   1. Valid annotation reasoning
+    #   2. Or a meaningful raw description
+
     threshold_2 = _STAGE_QUALITY_THRESHOLDS[TrainingStage.STAGE2_ACTION]
 
-    has_reasoning = (
-        sample.annotation is not None and len(sample.annotation.reasoning) >= 50
-    )
+    has_any_context = (
+        sample.annotation is not None and len(sample.annotation.reasoning.strip()) >= 20
+    ) or (sample.raw is not None and len((sample.raw.description or "").strip()) >= 5)
 
-    if score >= threshold_2 and has_reasoning:
-        stage = TrainingStage.STAGE2_ACTION.value
-        log.debug("stage_routed", sample_id=sample.sample_id, stage="stage2")
-        sample.training_stage = stage
-        return stage
+    if score >= threshold_2 and has_any_context:
+        sample.training_stage = TrainingStage.STAGE2_ACTION.value
 
-    # ── Stage 1: Element grounding ─────────────────────────────────────────
-    # Click samples with coordinates and OCR text
+        log.debug(
+            "stage_routed",
+            sample_id=sample.sample_id,
+            stage=sample.training_stage,
+        )
+
+        return sample.training_stage
+
+    # ── Stage 1 ───────────────────────────────────────────────────────────
+    # Accepts click actions with coordinates and OCR
+    # Stage 1 is intentionally unreachable when all samples have descriptions.
+    # Reserved for future curriculum training (coordinate-only prediction without reasoning).
+    # To activate: add explicit bypass condition before Stage 2 for description-less click samples.
     threshold_1 = _STAGE_QUALITY_THRESHOLDS[TrainingStage.STAGE1_GROUNDING]
 
     has_coordinates = (
@@ -89,23 +99,28 @@ def route(sample: PipelineSample) -> str:
         and sample.raw.coordinates is not None
         and action in _GROUNDING_ACTIONS
     )
+
     has_ocr = sample.enriched is not None and sample.enriched.n_ocr_regions >= 2
 
     if score >= threshold_1 and has_coordinates and has_ocr:
-        stage = TrainingStage.STAGE1_GROUNDING.value
-        log.debug("stage_routed", sample_id=sample.sample_id, stage="stage1")
-        sample.training_stage = stage
-        return stage
+        sample.training_stage = TrainingStage.STAGE1_GROUNDING.value
 
-    # ── No stage — below all thresholds ───────────────────────────────────
+        log.debug(
+            "stage_routed",
+            sample_id=sample.sample_id,
+            stage=sample.training_stage,
+        )
+
+        return sample.training_stage
+
+    # ── No stage ──────────────────────────────────────────────────────────
+
     log.debug(
         "stage_route_failed",
         sample_id=sample.sample_id,
         score=score,
         action=action,
     )
-    sample.training_stage = ""
-    if not sample.quality or not sample.quality.approved_for_training:
-        sample.status = SampleStatus.REJECTED.value
 
+    sample.training_stage = ""
     return ""

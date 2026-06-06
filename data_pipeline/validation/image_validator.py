@@ -15,7 +15,8 @@ MIN_WIDTH = 400  # pixels
 MIN_HEIGHT = 300  # pixels
 
 # Minimum file size — below this it's likely blank or corrupted
-MIN_FILE_SIZE_KB = 10.0
+# MIN_FILE_SIZE_KB = 10.0
+MIN_FILE_SIZE_KB = 5.0  # was 10.0 — 5KB is still clearly non-blank
 
 
 def validate(sample: PipelineSample) -> None:

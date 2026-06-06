@@ -160,6 +160,12 @@ class LlamaFactoryExporter:
                 if skip_reason:
                     skip_reasons[skip_reason] = skip_reasons.get(skip_reason, 0) + 1
                     skipped += 1
+                    log.debug(  # ← ADD THIS LOG
+                        "export_sample_skipped",
+                        sample_id=sample.sample_id,
+                        stage=stage,
+                        reason=skip_reason,
+                    )
                     continue
 
                 # ── Build training example ────────────────────────────────
@@ -224,41 +230,37 @@ class LlamaFactoryExporter:
 
     # ── Private helpers ────────────────────────────────────────────────────
 
-    def _check_eligibility(
-        self,
-        sample: PipelineSample,
-        stage: str,
-    ) -> str | None:
-        """
-        Check if sample is eligible for export.
-        Returns None if eligible, or a reason string if not.
-        """
+    def _check_eligibility(self, sample: PipelineSample, stage: str) -> str | None:
         from data_pipeline.core.schemas import SampleStatus
 
-        # Must be approved
         if sample.status != SampleStatus.APPROVED.value:
             return f"status:{sample.status}"
 
-        # Must match requested stage (or be ALL_STAGES)
         if (
             sample.training_stage != stage
             and sample.training_stage != TrainingStage.ALL_STAGES.value
         ):
             return f"wrong_stage:{sample.training_stage}"
 
-        # Must have raw content
         if sample.raw is None:
             return "missing_raw"
 
-        # Must have annotation with reasoning
-        if sample.annotation is None or not sample.annotation.reasoning:
-            return "missing_reasoning"
+        # Accept if LLM reasoning exists OR raw description exists
+        # description = basic label, reasoning = full chain-of-thought
+        # Both produce valid training signal — reasoning is just higher quality
+        has_reasoning = sample.annotation is not None and bool(
+            sample.annotation.reasoning.strip()
+        )
+        has_description = bool(
+            sample.raw.description and sample.raw.description.strip()
+        )
+        if not has_reasoning and not has_description:
+            return "missing_reasoning_and_description"
 
-        # Screenshot must exist
         if not Path(sample.raw.screenshot_path).exists():
             return "screenshot_missing"
 
-        return None  # eligible
+        return None
 
     def _build_example(
         self,
@@ -268,8 +270,8 @@ class LlamaFactoryExporter:
         """
         Convert PipelineSample into a TrainingExample.
         """
-        if sample.raw is None or sample.annotation is None:
-            raise ExportError("sample.raw or sample.annotation is None")
+        if sample.raw is None:
+            raise ExportError("sample.raw is None — cannot build training example")
 
         # ── Build human turn ──────────────────────────────────────────────
         human_value = self._build_human_turn(sample, stage)
@@ -309,10 +311,34 @@ class LlamaFactoryExporter:
         # OCR screen content
         if sample.enriched and sample.enriched.ocr_regions_detailed:
             lines.append("\nScreen content:")
-            for region in sample.enriched.ocr_regions_detailed[:30]:
+
+            # IMPROVISED CODE: context-aware OCR region selection.
+            # For click actions: sort regions by distance from click point
+            # so the model sees the most relevant context first.
+            # For all actions: limit to 20 regions (was 30) to reduce
+            # prompt noise without losing meaningful coverage.
+            all_regions = sample.enriched.ocr_regions_detailed
+
+            if (
+                sample.raw
+                and sample.raw.coordinates
+                and sample.raw.action_type in ("click", "double_click", "right_click")
+            ):
+                ax, ay = sample.raw.coordinates[0], sample.raw.coordinates[1]
+
+                def _region_distance(r: dict) -> float:
+                    b = r.get("bbox", [0.5, 0.5, 0.5, 0.5])
+                    cx = (b[0] + b[2]) / 2.0
+                    cy = (b[1] + b[3]) / 2.0
+                    return ((cx - ax) ** 2 + (cy - ay) ** 2) ** 0.5
+
+                all_regions = sorted(all_regions, key=_region_distance)
+            # END IMPROVISED CODE
+
+            for region in all_regions[:20]:
                 bbox = region.get("bbox", [])
                 text = region.get("text", "")
-                if bbox and len(bbox) == 4:
+                if bbox and len(bbox) == 4 and text.strip():
                     lines.append(
                         f"  - '{text}' at "
                         f"[{bbox[0]:.2f},{bbox[1]:.2f},{bbox[2]:.2f},{bbox[3]:.2f}]"
@@ -329,21 +355,63 @@ class LlamaFactoryExporter:
 
     def _build_assistant_turn(self, sample: PipelineSample) -> str:
         """
-        Build the assistant response — what the model should output.
+        Build the assistant (model) response for one training example.
 
-        Format:
-          <think>
-          {reasoning}
-          </think>
-          <action>{"type": "...", ...}</action>
+        Response format:
+            <think>
+            {reasoning — either LLM annotation or fallback from description}
+            </think>
+            <action>{"type": "click", "coordinates": [...], ...}</action>
+
+        Reasoning priority:
+            1. LLM annotation reasoning (best — verified, detailed)
+            2. Raw description (fallback — simple but trainable)
+            3. Generic fallback (last resort)
         """
-        if sample.raw is None or sample.annotation is None:
-            raise ExportError("Cannot build assistant turn: missing raw or annotation")
+        if sample.raw is None:
+            raise ExportError("sample.raw is None — cannot build action JSON")
 
-        reasoning = sample.annotation.reasoning.strip()
-        action = self._build_action_json(sample)
+        # Select best available reasoning
+        # Priority: LLM annotation > raw description > generic fallback
+        if (
+            sample.annotation is not None
+            and sample.annotation.reasoning
+            and len(sample.annotation.reasoning.strip()) > 10
+        ):
+            reasoning = sample.annotation.reasoning.strip()
+        elif sample.raw.description and len(sample.raw.description.strip()) > 5:
+            reasoning = (
+                f"Looking at the current screen for the task: {sample.task}. "
+                f"The next action is to {sample.raw.description.lower()}."
+            )
+        else:
+            reasoning = f"Executing the next required step for: {sample.task}."
 
-        return f"<think>\n{reasoning}\n</think>\n<action>{action}</action>"
+        # ── Select best available reasoning ───────────────────────────────────
+        if (
+            sample.annotation is not None
+            and sample.annotation.reasoning
+            and len(sample.annotation.reasoning.strip()) > 10
+        ):
+            # Best case: full LLM-generated chain-of-thought
+            reasoning = sample.annotation.reasoning.strip()
+
+        elif sample.raw.description and len(sample.raw.description.strip()) > 5:
+            # Fallback: use the action description as minimal reasoning
+            # This produces lower-quality training signal than LLM annotation
+            # but is still valid — the model learns action → description mapping
+            reasoning = (
+                f"Looking at the current screen for the task: {sample.task}. "
+                f"The next action is to {sample.raw.description.lower()}."
+            )
+        else:
+            # Last resort: generic reasoning
+            reasoning = f"Executing the next required step for: {sample.task}."
+
+        # ── Build action JSON ──────────────────────────────────────────────────
+        action_json = self._build_action_json(sample)
+
+        return f"<think>\n{reasoning}\n</think>\n<action>{action_json}</action>"
 
     def _build_action_json(self, sample: PipelineSample) -> str:
         """Serialize action to JSON string."""

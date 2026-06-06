@@ -68,9 +68,22 @@ class PipelineConfig:
     image_min_size_kb: float = 10.0
 
     # Annotation
-    annotate_samples: bool = False  # False in Stage 1 (no API key needed)
+    # Legacy Anthropic annotator (keep for compatibility)
+    annotate_samples: bool = False
     annotation_api_key: str = ""
     annotation_model: str = "claude-haiku-4-5-20251001"
+
+    # IMPROVISED CODE: Free-tier API keys for automated annotation.
+    # All three are optional. Pipeline tries them in priority order:
+    #   Groq (fastest, 14.4K req/day free) → OpenRouter (vision, 200 req/day)
+    #   → Google AI Studio (1.5K req/day) → description fallback
+    # Get keys at: console.groq.com | openrouter.ai | aistudio.google.com
+    # IMPROVISED CODE: Removed hardcoded default keys.
+    # Keys must come from .env via scripts/run_pipeline.py.
+    # Default is always empty string — no key = provider disabled.
+    groq_api_key: str = ""
+    google_api_key: str = ""
+    openrouter_api_key: str = ""
 
     # Export
     export_stages: list[str] = field(
@@ -157,6 +170,7 @@ class DatasetPipeline:
         self._reporter = PipelineReporter()
 
         # Annotator is optional — only built if API key provided
+        # Legacy Anthropic annotator — kept for backward compatibility
         self._annotator = None
         if self._config.annotate_samples and self._config.annotation_api_key:
             from data_pipeline.annotation.auto_annotator import AutoAnnotator
@@ -164,6 +178,33 @@ class DatasetPipeline:
             self._annotator = AutoAnnotator(
                 api_key=self._config.annotation_api_key,
                 model=self._config.annotation_model,
+            )
+
+        # IMPROVISED CODE: Free annotator — uses Groq/OpenRouter/Google.
+        # Takes priority over legacy Anthropic annotator when any key is set.
+        # Compatible with existing Annotation schema — no field changes.
+        self._free_annotator = None
+        _any_free_key = any(
+            [
+                self._config.groq_api_key,
+                self._config.openrouter_api_key,
+                self._config.google_api_key,
+            ]
+        )
+        if _any_free_key:
+            from data_pipeline.annotation.free_annotator import FreeAnnotator
+
+            self._free_annotator = FreeAnnotator(
+                groq_api_key=self._config.groq_api_key,
+                openrouter_api_key=self._config.openrouter_api_key,
+                google_api_key=self._config.google_api_key,
+                cache_dir=self._config.pipeline_dir,
+            )
+            log.info(
+                "free_annotator_ready",
+                groq=bool(self._config.groq_api_key),
+                openrouter=bool(self._config.openrouter_api_key),
+                google=bool(self._config.google_api_key),
             )
 
     @property
@@ -228,15 +269,28 @@ class DatasetPipeline:
         for sample in ingest_result.samples:
 
             # STAGE 2: VALIDATION
+            # FIXED — differentiate quarantine from rejection
             gate_result = self._gate.run(sample)
             metrics.validation.processed += 1
 
-            if gate_result.passed:
-                metrics.validation.passed += 1
-            else:
+            if sample.status == SampleStatus.REJECTED.value:
+                # Fatal gate failure (bad coordinates, exact duplicate, schema error)
+                # This sample is permanently unusable — skip it
                 metrics.validation.failed += 1
-                metrics.record_rejection(gate_result.failed_gate or gate_result.status)
-                continue  # skip to next sample
+                metrics.record_rejection(gate_result.failed_gate or "rejected")
+                continue
+
+            elif sample.status == SampleStatus.QUARANTINED.value:
+                # Non-fatal warning (image slightly small, low OCR confidence)
+                # Sample is still usable — continue processing but note the warning
+                metrics.validation.passed += 1
+                for warning in gate_result.warnings:
+                    metrics.record_rejection(f"warning:{warning[:40]}")
+                # DO NOT continue — fall through to enrichment
+
+            else:
+                # All gates passed cleanly
+                metrics.validation.passed += 1
 
             # STAGE 3: ENRICHMENT
             enrich_report = self._enricher.enrich(sample)
@@ -255,8 +309,19 @@ class DatasetPipeline:
             score_difficulty(sample)
 
             # STAGE 5: ANNOTATION (only if annotator configured)
+            # IMPROVISED CODE: Stage 5 — annotation with provider priority.
+            # Priority: FreeAnnotator > Anthropic annotator > description fallback.
+            # FreeAnnotator handles its own fallback internally.
             metrics.annotation.processed += 1
-            if self._annotator:
+
+            if self._free_annotator:
+                # Free LLM annotation (Groq/OpenRouter/Google).
+                # Returns True = real LLM used, False = description fallback.
+                used_llm = self._free_annotator.annotate(sample)
+                metrics.annotation.passed += 1
+
+            elif self._annotator:
+                # Legacy Anthropic annotator path.
                 ann_result = self._annotator.annotate(sample)
                 if ann_result.success:
                     metrics.annotation.passed += 1
@@ -267,8 +332,10 @@ class DatasetPipeline:
                         sample_id=sample.sample_id,
                         error=ann_result.error,
                     )
+
             else:
-                # No annotator — skip but count as passed
+                # No annotator configured.
+                # Description fallback is handled inside the exporter.
                 metrics.annotation.passed += 1
 
             # STAGE 6: QUALITY SCORING
@@ -305,8 +372,16 @@ class DatasetPipeline:
 
         self._registry.create_version(
             dataset_version,
-            notes=f"Run {run_id} — {len(approved_samples)} approved samples",
+            notes=f"Run {run_id}",
+            this_run_approved=len(approved_samples),  # IMPROVISED: honest count
         )
+
+        # IMPROVISED CODE: Record which run approved these samples in lineage
+        if approved_samples and hasattr(self, "_lineage_store"):
+            self._lineage_store.record_run_membership(
+                sample_ids=[s.sample_id for s in approved_samples],
+                run_id=run_id,
+            )
 
         # ── EXPORT ────────────────────────────────────────────────────────
         exporter = LlamaFactoryExporter(output_dir)

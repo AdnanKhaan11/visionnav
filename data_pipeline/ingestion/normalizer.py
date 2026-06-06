@@ -76,11 +76,11 @@ def normalize_recorded_step(
                 f"at line {line_number}"
             )
 
-        action_type = str(action.get("type", "")).strip()
+        action_type = str(action.get("type", "")).strip().lower()
         coordinates = action.get("coordinates")
         text = action.get("text")
         key = action.get("key")
-        description = str(action.get("description", ""))
+        description = str(action.get("description", "")).strip()
 
         if not action_type:
             raise IngestionError(

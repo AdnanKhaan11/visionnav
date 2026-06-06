@@ -1,0 +1,15 @@
+# Secrets
+.env
+*.env
+!.env.example
+
+# Pipeline state (rebuild from recordings)
+data/pipeline/.dedup_index.json
+data/pipeline/registry.db
+data/pipeline/lineage.jsonl
+data/pipeline/.annotation_cache.db
+
+# Generated training data (reproducible from pipeline)
+data/training/
+
+data/

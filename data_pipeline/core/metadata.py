@@ -18,6 +18,9 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
+import structlog
+
+log = structlog.get_logger(__name__)
 
 
 def new_sample_id() -> str:
@@ -191,6 +194,46 @@ class LineageStore:
         lineage.add_event(event=event, stage=stage, **kwargs)
         self._persist()
         return lineage
+
+    def record_run_membership(
+        self,
+        sample_ids: list[str],
+        run_id: str,
+    ) -> None:
+        """
+        Update included_in_runs for each sample in sample_ids.
+        Reads the lineage file, updates matching entries, rewrites.
+        Called once per pipeline run after samples are approved.
+        """
+        # IMPROVISED CODE: Populates included_in_runs field
+        if not hasattr(self, "_lineage_path") or not self._lineage_path.exists():
+            return
+
+        id_set = set(sample_ids)
+        entries = []
+
+        with open(self._lineage_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    entries.append(json.loads(line))
+
+        updated = 0
+        for entry in entries:
+            if entry.get("sample_id") in id_set:
+                runs = entry.get("included_in_runs", [])
+                if run_id not in runs:
+                    runs.append(run_id)
+                    entry["included_in_runs"] = runs
+                    updated += 1
+
+        with open(self._lineage_path, "w", encoding="utf-8") as f:
+            for entry in entries:
+                f.write(json.dumps(entry) + "\n")
+
+        log.info(
+            "lineage_run_membership_updated", run_id=run_id, samples_updated=updated
+        )
 
     def _persist(self) -> None:
         """Rewrite entire file from cache."""

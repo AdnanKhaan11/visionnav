@@ -291,34 +291,32 @@ class DatasetRegistry:
         self,
         version: str,
         notes: str = "",
+        this_run_approved: int = 0,  # IMPROVISED: samples added in THIS run only
     ) -> None:
         """
         Create a new dataset version record.
-        Counts approved samples automatically.
+
+        this_run_approved: count of samples approved in the current pipeline run.
+        Stored as approved_samples for this version.
+        The total_samples field reflects cumulative registry size.
         """
         v = DatasetVersion.parse(version)
 
         with self._conn() as conn:
-            # Count approved samples
             total_row = conn.execute("SELECT COUNT(*) FROM samples").fetchone()
-            approved_row = conn.execute(
-                "SELECT COUNT(*) FROM samples WHERE approved = 1"
-            ).fetchone()
-
             total = total_row[0] if total_row else 0
-            approved = approved_row[0] if approved_row else 0
 
             conn.execute(
                 """
                 INSERT OR REPLACE INTO datasets
                 (version, created_at, total_samples, approved_samples, notes)
                 VALUES (?, ?, ?, ?, ?)
-            """,
+               """,
                 (
                     str(v),
                     datetime.now(timezone.utc).isoformat(),
                     total,
-                    approved,
+                    this_run_approved,  # IMPROVISED: honest — only this run's count
                     notes,
                 ),
             )
@@ -326,8 +324,8 @@ class DatasetRegistry:
         log.info(
             "dataset_version_created",
             version=str(v),
-            total_samples=total,
-            approved_samples=approved,
+            this_run_approved=this_run_approved,
+            total_in_registry=total,
         )
 
     def lock_version(self, version: str) -> None:
